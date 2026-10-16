@@ -33,6 +33,7 @@ export async function onRequest({ request, env }) {
       await setSetting(db, 'grandfather', f.get('grandfather') ? '1' : '0');
       await setSetting(db, 'message', String(f.get('message') || '').slice(0, 600));
       await setSetting(db, 'contact', String(f.get('contact') || '').slice(0, 200));
+      await setSetting(db, 'offline_days', Math.min(Math.max(parseInt(f.get('offline_days'), 10) || 3, 1), 60));
       return back('?ok=saved');
     }
     if (a === 'newkey') {
@@ -108,6 +109,7 @@ export async function onRequest({ request, env }) {
         <label>Message in the app when a key is needed<textarea name="message" rows="3" placeholder="Example: Cutkaar Pro costs Rs 1,500 for one computer. Send the payment to JazzCash 03xx-xxxxxxx and WhatsApp the receipt to get your key.">${esc(S.message)}</textarea></label>
         <label>Contact (WhatsApp number, email or website)<input name="contact" value="${esc(S.contact)}" placeholder="WhatsApp 03xx-xxxxxxx"></label>
         <label class="chk"><input type="checkbox" name="grandfather" ${S.grandfather === '1' ? 'checked' : ''}> Keep Cutkaar free for people who already had it before paid mode was first turned on${S.paid_since ? ` (${when(S.paid_since)})` : ''}</label>
+        <label class="inl">Days a licensed computer may work without internet <input name="offline_days" type="number" min="1" max="60" value="${esc(S.offline_days || '3')}" class="num"></label>
         <div><button>Save</button></div></form></section>
     <section class="card"><h2>License keys</h2>
       <form method="post" class="row"><input type="hidden" name="a" value="newkey">

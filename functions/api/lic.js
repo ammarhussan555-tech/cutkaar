@@ -25,7 +25,7 @@ export async function onRequest(context) {
 
   const S = await getSettings(db);
   const dev = await db.prepare('SELECT * FROM devices WHERE id = ?1').bind(id).first();
-  const info = { message: S.message || '', contact: S.contact || '' };
+  const info = { message: S.message || '', contact: S.contact || '', offlineDays: Math.min(Math.max(parseInt(S.offline_days, 10) || 3, 1), 60) };
 
   if (action === 'release') {
     await db.prepare('UPDATE devices SET lic = NULL WHERE id = ?1').bind(id).run();

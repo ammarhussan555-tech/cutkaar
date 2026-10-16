@@ -42,7 +42,7 @@ export { init };
 
 export async function getSettings(db) {
   const rows = (await db.prepare('SELECT k, v FROM settings').all()).results || [];
-  const o = { paid: '0', paid_since: '', grandfather: '1', message: '', contact: '' };
+  const o = { paid: '0', paid_since: '', grandfather: '1', message: '', contact: '', offline_days: '3' };
   for (const r of rows) o[r.k] = r.v ?? '';
   return o;
 }

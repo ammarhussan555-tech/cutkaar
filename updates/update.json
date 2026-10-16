@@ -1,9 +1,9 @@
 {
- "version": "3.9.4",
+ "version": "3.9.5",
  "resources": "resources.neu",
- "size": 2371404,
- "sha256": "cf29f1d976890a5c7c7f84d9fbb014878f217175f418aef8d1eb7a412cfaf0c6",
+ "size": 2371595,
+ "sha256": "cf7ae0006e5457421249dd9788313ff0f770e08c9183a6525c09b192b0f127c4",
  "minShell": "3.9.1",
- "notes": "Menu \u2192 License: license keys support (Cutkaar stays free; nothing changes for you).",
+ "notes": "Small license improvements. Cutkaar is still free.",
  "setup": "https://cutkaar.pages.dev/Cutkaar-Setup.exe"
 }
