@@ -1,8 +1,10 @@
 # Cutkaar
 
+Website: https://cutkaar.pages.dev
+
 A free video editor for Windows. Developed by **Uzair Latif**.
 
-**Download:** [Cutkaar-Setup.exe](https://github.com/ammarhussan555-tech/cutkaar/raw/main/Cutkaar-Setup.exe)
+**Download:** [Cutkaar-Setup.exe](https://cutkaar.pages.dev/Cutkaar-Setup.exe)
 
 Install it once. After that Cutkaar updates itself automatically.
 

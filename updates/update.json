@@ -1,9 +1,9 @@
 {
- "version": "3.9.1",
+ "version": "3.9.2",
  "resources": "resources.neu",
- "size": 1424876,
- "sha256": "5f8446e0e7d5304647b3ca03521abcd0dc90dffb4bd7c67891e41a22e6081c28",
+ "size": 1424913,
+ "sha256": "ad42707cea80aa9944fb31f971b29f497b341b5d7504eb6f2d7eec319f8f4e37",
  "minShell": "3.9.1",
- "notes": "Select several projects at once, faster export, clearer export screen, automatic updates",
- "setup": "https://github.com/ammarhussan555-tech/cutkaar/raw/main/Cutkaar-Setup.exe"
+ "notes": "Website moved to cutkaar.pages.dev; updates now come from three places",
+ "setup": "https://cutkaar.pages.dev/Cutkaar-Setup.exe"
 }
