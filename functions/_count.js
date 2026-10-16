@@ -5,6 +5,13 @@ async function init(db) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS hits (
     day TEXT NOT NULL, kind TEXT NOT NULL, country TEXT NOT NULL, city TEXT NOT NULL,
     n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, kind, country, city))`).run();
+  await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS settings (k TEXT PRIMARY KEY, v TEXT)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+      country TEXT, city TEXT, version TEXT, lic TEXT, opens INTEGER NOT NULL DEFAULT 0, kicked INTEGER NOT NULL DEFAULT 0)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS licenses (key TEXT PRIMARY KEY, note TEXT, max_devices INTEGER NOT NULL DEFAULT 1,
+      created TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0)`),
+  ]);
   ready = true;
 }
 export function pkDay(d = new Date()) {           // day in Pakistan time (UTC+5)
@@ -32,3 +39,13 @@ export async function count(env, request, kind) {
   } catch (e) { console.log('count failed', e && e.message); }
 }
 export { init };
+
+export async function getSettings(db) {
+  const rows = (await db.prepare('SELECT k, v FROM settings').all()).results || [];
+  const o = { paid: '0', paid_since: '', grandfather: '1', message: '', contact: '' };
+  for (const r of rows) o[r.k] = r.v ?? '';
+  return o;
+}
+export async function setSetting(db, k, v) {
+  await db.prepare('INSERT INTO settings (k, v) VALUES (?1, ?2) ON CONFLICT (k) DO UPDATE SET v = ?2').bind(k, String(v)).run();
+}

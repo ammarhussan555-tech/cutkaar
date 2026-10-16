@@ -1,9 +1,9 @@
 {
- "version": "3.9.3",
+ "version": "3.9.4",
  "resources": "resources.neu",
- "size": 2314749,
- "sha256": "ff6e8c81df0381e07ec1c9635466763eba5d1668d9d12e0566f2a2f8d7ad8480",
+ "size": 2371404,
+ "sha256": "cf29f1d976890a5c7c7f84d9fbb014878f217175f418aef8d1eb7a412cfaf0c6",
  "minShell": "3.9.1",
- "notes": "Cutkaar ab 24 zubanon mein: Menu \u2192 Language se apni zuban chunein. App languages: Urdu, Hindi, Arabic, Persian, Bengali, Tamil, Spanish, Portuguese, French, German, Italian, Dutch, Polish, Turkish, Indonesian, Malay, Vietnamese, Russian, Ukrainian, Thai, Chinese, Japanese, Korean.",
+ "notes": "Menu \u2192 License: license keys support (Cutkaar stays free; nothing changes for you).",
  "setup": "https://cutkaar.pages.dev/Cutkaar-Setup.exe"
 }

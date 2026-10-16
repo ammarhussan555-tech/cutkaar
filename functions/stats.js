@@ -1,32 +1,14 @@
 import { init, pkDay } from './_count.js';
+import { guard, esc, BASE_CSS } from './_auth.js';
 // Private dashboard: how many people downloaded Cutkaar and opened the app, by day, country and city.
 // Open https://cutkaar.pages.dev/stats and enter the STATS_KEY you set in Cloudflare.
 
-const COOKIE = 'ck_stats';
-async function sha(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
-}
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const html = (body, status = 200, extra = {}) => new Response(page(body), {
   status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex', ...extra } });
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
-  if (!env.STATS_KEY) return html(note('Almost ready', 'Add a secret named <b>STATS_KEY</b> in Cloudflare (Workers &amp; Pages → cutkaar → Settings → Variables and Secrets), then redeploy.'));
-  const want = await sha(env.STATS_KEY);
-
-  if (request.method === 'POST') {
-    const f = await request.formData();
-    if (await sha(String(f.get('key') || '')) !== want) return html(login('That key is not right. Try again.'), 401);
-    return new Response(null, { status: 303, headers: { Location: '/stats',
-      'Set-Cookie': `${COOKIE}=${want}; Path=/stats; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict` } });
-  }
-  const ck = (request.headers.get('cookie') || '').split(/;\s*/).find(c => c.startsWith(COOKIE + '='));
-  if (!ck || ck.slice(COOKIE.length + 1) !== want) return html(login(''));
-  if (url.searchParams.has('logout')) return new Response(null, { status: 303, headers: { Location: '/stats', 'Set-Cookie': `${COOKIE}=; Path=/stats; Max-Age=0` } });
-  if (!env.DB) return html(note('Connect the database', 'Bind a D1 database with the variable name <b>DB</b> to this Pages project (Settings → Bindings), then redeploy.'));
-
+  const g = await guard(request, env, html, '/stats'); if (g) return g;
   await init(env.DB);
   const days = Math.min(Math.max(parseInt(url.searchParams.get('d') || '30', 10) || 30, 1), 3650);
   const today = pkDay();
@@ -45,6 +27,7 @@ export async function onRequest({ request, env }) {
     q(`SELECT city, country, SUM(CASE WHEN kind='download' THEN n ELSE 0 END) AS dl, SUM(CASE WHEN kind='open' THEN n ELSE 0 END) AS op
        FROM hits WHERE day >= ?1 GROUP BY city, country ORDER BY dl DESC, op DESC LIMIT 100`, from),
   ]);
+  const comp = await env.DB.prepare('SELECT COUNT(*) AS n FROM devices WHERE last_seen >= ?1').bind(new Date(Date.now() - days * 864e5).toISOString()).first();
   const T = k => tot.find(r => r.kind === k) || { allTime: 0, today: 0, inRange: 0 };
   const D = T('download'), O = T('open');
 
@@ -78,11 +61,11 @@ export async function onRequest({ request, env }) {
   const empty = cols => `<tr><td colspan="${cols}" class="empty">Nothing yet for ${rangeName}. Counting starts from the first download.</td></tr>`;
 
   return html(`<header class="top"><div><h1>Cutkaar stats</h1><p>Downloads of the installer and app opens (each time Cutkaar checks for updates). Times are Pakistan time.</p></div>
-    <a class="out" href="?logout">Sign out</a></header>
+    <nav class="toplinks"><a href="/admin">Admin</a><a href="?logout">Sign out</a></nav></header>
     <nav class="rng" aria-label="Time range">${ranges}</nav>
     <div class="tiles">
       ${tile('Downloads', D.inRange, rangeName)}${tile('Downloads today', D.today, today)}${tile('Downloads all time', D.allTime, 'since counting began')}
-      ${tile('App opens', O.inRange, rangeName)}${tile('App opens today', O.today, today)}
+      ${tile('App opens', O.inRange, rangeName)}${tile('App opens today', O.today, today)}${tile('Computers using Cutkaar', comp ? comp.n : 0, rangeName + ' · 3.9.4+')}
     </div>
     <div class="two">${chart('download', 'Downloads')}${chart('open', 'App opens')}</div>
     <section class="card"><h2>Countries <span>${rangeName}</span></h2><div class="tw"><table><thead><tr><th>Country</th><th class="n">Downloads</th><th class="n">App opens</th><th class="share">Share of downloads</th></tr></thead>
@@ -101,24 +84,10 @@ export async function onRequest({ request, env }) {
     </script>`);
 }
 
-function login(err) {
-  return `<form class="login card" method="post"><h1>Cutkaar stats</h1><p>Enter your stats key to see downloads.</p>
-    <label for="k">Stats key</label><input id="k" name="key" type="password" autocomplete="current-password" required autofocus>
-    ${err ? `<p class="err">${err}</p>` : ''}<button>Open stats</button></form>`;
-}
-function note(t, m) { return `<section class="login card"><h1>${t}</h1><p>${m}</p></section>`; }
-
 function page(body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>Cutkaar stats</title><link rel="icon" href="/favicon.svg">
-<style>
-:root{--ink:#0b1113;--panel:#121a1d;--panel-2:#18222a;--line:#24333a;--text:#e7edef;--muted:#97a6ac;--cut:#2ec8dd;color-scheme:dark}
-*{box-sizing:border-box}body{margin:0;background:var(--ink);color:var(--text);font:400 15px/1.55 "Segoe UI",system-ui,sans-serif}
-main{max-width:1180px;margin:0 auto;padding:24px 16px 60px}
-h1{font-size:26px;margin:0 0 4px}h2{font-size:16px;margin:0 0 14px}h2 span{color:var(--muted);font-weight:400;font-size:13px;margin-left:6px}
-p{margin:0;color:var(--muted)}a{color:var(--cut)}
-.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}.out{font-size:14px;white-space:nowrap}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:16px;min-width:0}
+<style>${BASE_CSS}
 .rng{display:flex;flex-wrap:wrap;gap:6px}.rng a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;color:var(--text);text-decoration:none;font-size:14px}
 .rng a[aria-current]{background:var(--cut);border-color:var(--cut);color:#03191d;font-weight:600}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px}
