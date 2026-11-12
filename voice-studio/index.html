@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Voice Studio — Gemini Premium Voices</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<style>
+:root{--bg:#0d0f14;--card:#161922;--line:#262b38;--text:#eceef4;--mute:#8d95aa;--acc:#7c5cff;--acc2:#b48bff;--gold:#f5c451;--ok:#34d399;--err:#f87171}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:1000px;margin:0 auto;padding:26px 18px 70px}
+h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:0 0 20px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+label{display:block;font-size:12px;color:var(--mute);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+input[type=text],input[type=password],select,textarea{width:100%;background:#0a0c10;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:11px;font:14px Inter,sans-serif;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+textarea{min-height:240px;resize:vertical;line-height:1.6;font-size:15px}
+.meta{display:flex;justify-content:space-between;font-size:12px;color:var(--mute);margin-top:8px}
+.meta .over{color:var(--err);font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:700px){.grid2,.grid3{grid-template-columns:1fr}}
+button{border:0;border-radius:10px;padding:12px 18px;font:600 14px Inter,sans-serif;cursor:pointer;transition:.15s}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff}
+.primary:hover:not(:disabled){filter:brightness(1.1)}
+.sec{background:#232838;color:var(--text)}
+.sec:hover:not(:disabled){background:#2d3346}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.voices{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:300px;overflow:auto;padding-right:4px}
+.v{background:#0a0c10;border:1px solid var(--line);border-radius:10px;padding:9px 10px;cursor:pointer;position:relative}
+.v:hover{border-color:#3a4155}
+.v.on{border-color:var(--acc);background:rgba(124,92,255,.12)}
+.v b{display:block;font-size:14px}
+.v small{color:var(--mute);font-size:11px}
+.v .g{position:absolute;top:8px;right:9px;font-size:11px;color:var(--mute)}
+.v .pv{position:absolute;bottom:7px;right:7px;background:#232838;border-radius:6px;padding:2px 7px;font-size:11px;color:var(--text)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.chip{background:#0a0c10;border:1px solid var(--line);color:var(--mute);padding:6px 11px;border-radius:99px;font-size:12px;cursor:pointer}
+.chip.on{border-color:var(--gold);color:var(--gold)}
+.bar{height:6px;background:#232838;border-radius:6px;overflow:hidden;margin:14px 0 8px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .3s}
+.log{font-size:13px;color:var(--mute);min-height:20px;white-space:pre-line}
+.log .ok{color:var(--ok)} .log .err{color:var(--err)}
+audio{width:100%;margin-top:12px}
+.tip{font-size:13px;color:var(--mute);line-height:1.7}
+.tip b{color:var(--text)} .tip a{color:var(--acc2)}
+.badge{display:inline-block;background:rgba(245,196,81,.12);color:var(--gold);font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;vertical-align:middle}
+.hidden{display:none}
+.tags span{display:inline-block;background:#0a0c10;border:1px solid var(--line);border-radius:6px;padding:3px 8px;margin:3px 4px 0 0;font-size:12px;cursor:pointer;color:var(--mute)}
+.tags span:hover{color:var(--text);border-color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎙️ AI Voice Studio <span class="badge">Gemini 3.8 · 30 Premium Voices</span></h1>
+  <p class="sub">Ek dafa mein 20,000 characters tak · Google AI Studio voices · WAV / MP3 download</p>
+
+  <!-- API KEY -->
+  <div class="card">
+    <label>Google AI Studio API key (free)</label>
+    <div class="row">
+      <input type="password" id="key" placeholder="AIza... yahan paste karein" style="flex:1;min-width:220px">
+      <button class="sec" id="saveKey">Save</button>
+      <button class="sec" id="testKey">🔌 Connection test</button>
+    </div>
+    <div class="log" id="keyLog" style="margin-top:8px"></div>
+    <div class="tip" style="margin-top:8px">Key nahi hai? <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> par Google account se login karein → "Create API key" → copy karke yahan paste karein. Key sirf aap ke browser mein save hoti hai.</div>
+  </div>
+
+  <!-- SCRIPT -->
+  <div class="card">
+    <label>Script</label>
+    <textarea id="text" maxlength="20000" placeholder="Apni English script yahan paste karein (20,000 characters tak)...">Welcome back to the channel! Today, we're diving into five simple habits that can completely transform your mornings. And trust me — stay till the end, because the last one is a total game changer.</textarea>
+    <div class="meta"><span id="count">0 / 20,000</span><span id="dur">~0 min audio</span></div>
+    <div class="tags" style="margin-top:8px"><span style="border:0;padding-left:0;cursor:default">Expression tags add karein:</span>
+      <span data-t="<laugh>">😄 laugh</span><span data-t="<sigh>">😮‍💨 sigh</span><span data-t="<breath>">🌬 breath</span><span data-t="<short pause>">⏸ short pause</span><span data-t="<long pause>">⏸⏸ long pause</span><span data-t="<whisper>">🤫 whisper</span>
+    </div>
+  </div>
+
+  <!-- VOICES -->
+  <div class="card">
+    <label>Voice — <span id="selName" style="color:var(--text);text-transform:none">Charon</span></label>
+    <div class="chips">
+      <span class="chip on" data-g="all">All 30</span>
+      <span class="chip" data-g="F">Female</span>
+      <span class="chip" data-g="M">Male</span>
+    </div>
+    <div class="voices" id="voices"></div>
+    <div class="log" id="pvLog" style="margin-top:10px">Kisi voice ke ▶ button par click karke uski awaaz sunein.</div>
+    <audio id="pvPlayer" controls class="hidden"></audio>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <div class="grid3">
+      <div><label>Style / Tone</label>
+        <select id="style">
+          <option value="">Natural (default)</option>
+          <option selected>Engaging YouTube narrator, warm and energetic</option>
+          <option>Deep, cinematic documentary narrator</option>
+          <option>Calm, soothing storyteller</option>
+          <option>Professional news anchor, clear and confident</option>
+          <option>Excited, high-energy advertisement</option>
+          <option>Soft, relaxing meditation guide</option>
+          <option>Friendly, conversational podcast host</option>
+          <option>Dramatic, suspenseful horror story narrator</option>
+          <option>Motivational speaker, powerful and inspiring</option>
+          <option value="custom">✏️ Custom...</option>
+        </select>
+        <input type="text" id="customStyle" class="hidden" style="margin-top:8px" placeholder="e.g. sad and emotional, slow">
+      </div>
+      <div><label>Speed</label>
+        <select id="speed">
+          <option value="very slow">Very slow</option>
+          <option value="slightly slow">Slow</option>
+          <option value="" selected>Normal</option>
+          <option value="slightly fast">Fast</option>
+          <option value="fast">Very fast</option>
+        </select>
+      </div>
+      <div><label>Model</label>
+        <select id="model">
+          <option value="gemini-3.8-flash-tts" selected>Gemini 3.8 Flash TTS (best)</option>
+          <option value="gemini-3.8-flash-lite-tts">Gemini 3.8 Flash-Lite TTS (faster)</option>
+          <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (old)</option>
+          <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS (old)</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div><label>Chunk size (har request mein characters)</label>
+        <select id="chunk">
+          <option value="1500">1,500 (sab se safe)</option>
+          <option value="3000" selected>3,000 (recommended)</option>
+          <option value="5000">5,000 (kam requests)</option>
+        </select>
+      </div>
+      <div><label>Download format</label>
+        <select id="fmt"><option value="mp3" selected>MP3 (chhoti file)</option><option value="wav">WAV (best quality)</option></select>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:18px">
+      <button class="primary" id="gen" style="flex:1;min-width:180px">⚡ Generate Voiceover</button>
+      <button class="sec" id="cancel" disabled>✖ Cancel</button>
+    </div>
+    <div class="bar"><i id="prog"></i></div>
+    <div class="log" id="log"></div>
+    <audio id="player" controls class="hidden"></audio>
+    <div class="row hidden" id="dlRow" style="margin-top:10px">
+      <button class="primary" id="dl">⬇ Download</button>
+      <span class="tip" id="dlInfo"></span>
+    </div>
+  </div>
+
+  <div class="card tip">
+    <b>Kaise kaam karta hai:</b> lambi script ko chhote hisson (chunks) mein tor kar Google ko bheja jata hai, phir sab audio jor kar ek file banti hai — is liye 20,000 characters (~20 min audio) aik click mein ban jate hain.<br>
+    <b>Free limit:</b> Google ka free tier per-minute aur per-day requests ki had rakhta hai. Limit lage to tool khud wait karke dobara try karta hai. Roz ki limit khatam ho jaye to agle din chalayein.<br>
+    <b>Tip:</b> kisi lafz par zor dena ho to use CAPITAL mein likhein. Tags jaise &lt;laugh&gt; ya &lt;long pause&gt; script mein kahin bhi daal sakte hain.
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const VOICES = [
+ ["Zephyr","Bright","F"],["Puck","Upbeat","M"],["Charon","Informative","M"],["Kore","Firm","F"],["Fenrir","Excitable","M"],
+ ["Leda","Youthful","F"],["Orus","Firm","M"],["Aoede","Breezy","F"],["Callirrhoe","Easy-going","F"],["Autonoe","Bright","F"],
+ ["Enceladus","Breathy","M"],["Iapetus","Clear","M"],["Umbriel","Easy-going","M"],["Algieba","Smooth","M"],["Despina","Smooth","F"],
+ ["Erinome","Clear","F"],["Algenib","Gravelly","M"],["Rasalgethi","Informative","M"],["Laomedeia","Upbeat","F"],["Achernar","Soft","F"],
+ ["Alnilam","Firm","M"],["Schedar","Even","M"],["Gacrux","Mature","F"],["Pulcherrima","Forward","F"],["Achird","Friendly","M"],
+ ["Zubenelgenubi","Casual","M"],["Vindemiatrix","Gentle","F"],["Sadachbia","Lively","M"],["Sadaltager","Knowledgeable","M"],["Sulafat","Warm","F"]
+];
+const MAX = 20000, RATE = 24000;
+let voice = "Charon", gFilter = "all", aborter = null, finalBlob = null, finalName = "";
+
+// ---------- storage ----------
+const store = { get(k){ try{return localStorage.getItem(k)}catch(e){return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch(e){} } };
+$('key').value = store.get('gemini_key') || '';
+voice = store.get('gemini_voice') || voice;
+const keyLog = (m, c) => $('keyLog').innerHTML = c ? `<span class="${c}">${m}</span>` : m;
+$('saveKey').onclick = () => { store.set('gemini_key', $('key').value.trim()); keyLog('✅ Key save ho gayi.', 'ok'); };
+$('testKey').onclick = async () => {
+  const key = $('key').value.trim();
+  if (!key) return keyLog('⚠️ Pehle API key paste karein.', 'err');
+  keyLog('⏳ Google se connection check ho raha hai...');
+  try{
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key));
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return keyLog('⚠️ Connection theek hai, lekin key mein masla hai: ' + (j?.error?.message || r.status), 'err');
+    store.set('gemini_key', key);
+    const tts = (j.models || []).map(m => m.name.replace('models/','')).filter(n => /tts/i.test(n));
+    const sel = $('model'), have = [...sel.options].map(o => o.value);
+    tts.forEach(n => { if (!have.includes(n)){ const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); } });
+    if (tts.length && !tts.includes(sel.value)) sel.value = tts.find(n => /3\.8-flash-tts/.test(n)) || tts[0];
+    keyLog('✅ Sab theek hai! Key kaam kar rahi hai. Aap ki key par ye TTS models hain: ' + (tts.join(', ') || 'koi nahi mila'), 'ok');
+  }catch(e){ keyLog('⚠️ ' + blockedHelp(), 'err'); }
+};
+if (inSandbox()) keyLog('⚠️ Ye file kisi app ke preview ke andar khuli hai, yahan voices nahi banengi. File download karke Chrome ya Edge mein kholein.', 'err');
+
+// ---------- voices ----------
+function renderVoices(){
+  $('voices').innerHTML = VOICES.filter(v => gFilter==='all' || v[2]===gFilter).map(([n,d,g]) =>
+    `<div class="v ${n===voice?'on':''}" data-n="${n}"><span class="g">${g==='F'?'♀':'♂'}</span><b>${n}</b><small>${d}</small><span class="pv" data-p="${n}">▶</span></div>`).join('');
+  $('selName').textContent = voice;
+}
+$('voices').onclick = e => {
+  const p = e.target.closest('[data-p]');
+  if (p){ e.stopPropagation(); previewVoice(p.dataset.p, p); return; }
+  const v = e.target.closest('.v'); if (!v) return;
+  voice = v.dataset.n; store.set('gemini_voice', voice); renderVoices();
+};
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on')); c.classList.add('on'); gFilter = c.dataset.g; renderVoices();
+});
+renderVoices();
+
+// ---------- text meta ----------
+function meta(){
+  const n = $('text').value.length, words = $('text').value.trim().split(/\s+/).filter(Boolean).length;
+  $('count').innerHTML = `<span class="${n>MAX?'over':''}">${n.toLocaleString()} / 20,000</span> characters · ${words.toLocaleString()} words`;
+  const mins = words/150; $('dur').textContent = mins < 1 ? `~${Math.max(1,Math.round(mins*60))} sec audio` : `~${mins.toFixed(1)} min audio`;
+}
+$('text').oninput = meta; meta();
+document.querySelectorAll('.tags [data-t]').forEach(t => t.onclick = () => {
+  const ta = $('text'), s = ta.selectionStart, tag = ' ' + t.dataset.t + ' ';
+  ta.value = ta.value.slice(0,s) + tag + ta.value.slice(ta.selectionEnd); ta.focus(); ta.selectionStart = ta.selectionEnd = s + tag.length; meta();
+});
+$('style').onchange = () => $('customStyle').classList.toggle('hidden', $('style').value !== 'custom');
+
+function log(msg, cls){ $('log').innerHTML = cls ? `<span class="${cls}">${msg}</span>` : msg; }
+function styleText(){
+  let s = $('style').value === 'custom' ? $('customStyle').value.trim() : $('style').value;
+  const sp = $('speed').value;
+  if (sp) s = (s ? s + ', ' : '') + 'speaking at a ' + sp + ' pace';
+  return s;
+}
+
+// ---------- chunking ----------
+function chunkText(text, size){
+  const sentences = text.replace(/\r/g,'').match(/[^.!?\n]+[.!?]+["')\]]*\s*|[^.!?\n]+\n*|\n+/g) || [text];
+  const out = []; let cur = '';
+  for (let s of sentences){
+    while (s.length > size){ // very long sentence: cut on comma/space
+      let cut = s.lastIndexOf(',', size); if (cut < size*0.5) cut = s.lastIndexOf(' ', size); if (cut < 1) cut = size;
+      if (cur.trim()){ out.push(cur); cur=''; }
+      out.push(s.slice(0,cut+1)); s = s.slice(cut+1);
+    }
+    if ((cur + s).length > size && cur.trim()){ out.push(cur); cur = s; } else cur += s;
+  }
+  if (cur.trim()) out.push(cur);
+  return out.map(c=>c.trim()).filter(Boolean);
+}
+
+// ---------- API ----------
+let simpleMode = false;
+function inSandbox(){
+  try{ if (window.self !== window.top) return true; }catch(e){ return true; }
+  return !/^(file|https?):$/.test(location.protocol) && !/^content:/.test(location.protocol);
+}
+function blockedHelp(){
+  if (inSandbox()) return 'Ye file abhi kisi app ke preview ke andar khuli hai, aur wahan internet requests block hain. File ko DOWNLOAD karein, phir Downloads folder se Chrome ya Edge mein kholein.';
+  return 'Browser ne Google tak request nahi jane di. Check karein: (1) internet chal raha hai, (2) koi ad-blocker ya VPN Google APIs ko block to nahi kar raha, (3) file Chrome ya Edge mein khuli hai. Phir "Connection test" dabayein.';
+}
+let legacyFormat = false; // switches on automatically if the new request format is rejected
+function buildBody(model, text, v, style){
+  if (model.startsWith('gemini-3.8') && !legacyFormat){
+    const part = { text }; if (style) part.speech_metadata = { style };
+    return { contents:[{ role:'user', parts:[part] }],
+      generationConfig:{ responseModalities:['AUDIO'], speechConfig:{ voiceConfig:{ voice: v } } } };
+  }
+  return { contents:[{ parts:[{ text: style ? `Read the following in this style: ${style}.\n\n${text}` : text }] }],
+    generationConfig:{ responseModalities:['AUDIO'], speechConfig:{ voiceConfig:{ prebuiltVoiceConfig:{ voiceName: v } } } } };
+}
+
+function b64ToBytes(b64){ const bin = atob(b64), u = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+function toPCM(bytes){ // strip WAV header if present
+  if (bytes[0]===82 && bytes[1]===73 && bytes[2]===70 && bytes[3]===70){
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength); let p = 12;
+    while (p + 8 <= bytes.length){
+      const id = String.fromCharCode(bytes[p],bytes[p+1],bytes[p+2],bytes[p+3]), sz = dv.getUint32(p+4,true);
+      if (id === 'data') return new Int16Array(bytes.slice(p+8, p+8+Math.min(sz, bytes.length-p-8)).buffer);
+      p += 8 + sz + (sz & 1);
+    }
+    return new Int16Array(bytes.slice(44).buffer);
+  }
+  const even = bytes.length - (bytes.length % 2);
+  return new Int16Array(bytes.slice(0, even).buffer);
+}
+const sleep = (ms, signal) => new Promise((res, rej) => { const t = setTimeout(res, ms); signal && signal.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('Aborted','AbortError')); }); });
+
+async function tts(text, v, signal, onWait){
+  const key = $('key').value.trim(), model = $('model').value;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  for (let attempt = 1; attempt <= 6; attempt++){
+    let r;
+    const body = JSON.stringify(buildBody(model, text, v, styleText()));
+    try{
+      if (simpleMode) throw new TypeError('skip');
+      r = await fetch(url, { method:'POST', signal, headers:{ 'Content-Type':'application/json', 'x-goog-api-key': key }, body });
+    }catch(e){
+      if (e.name === 'AbortError') throw e;
+      // Fallback: "simple" request (no custom headers) so the browser skips the CORS pre-check
+      try{
+        r = await fetch(url + '?key=' + encodeURIComponent(key), { method:'POST', signal, body });
+        simpleMode = true;
+      }catch(e2){
+        if (e2.name === 'AbortError') throw e2;
+        throw new Error(blockedHelp());
+      }
+    }
+    const j = await r.json().catch(() => ({}));
+    if (r.ok){
+      const parts = j?.candidates?.[0]?.content?.parts || [];
+      const audio = parts.find(p => p.inlineData || p.inline_data);
+      if (audio) return toPCM(b64ToBytes((audio.inlineData || audio.inline_data).data));
+      if (attempt < 3){ await sleep(1500, signal); continue; } // occasional empty response
+      throw new Error('Audio wapas nahi aaya. Reason: ' + (j?.candidates?.[0]?.finishReason || 'unknown'));
+    }
+    const msg = j?.error?.message || r.statusText;
+    if (r.status === 429 || r.status >= 500){
+      if (/per day|daily|PerDay/i.test(msg)) throw new Error('Aaj ki free limit khatam ho gayi. Kal dobara try karein ya doosri Google account ki key use karein.\n' + msg);
+      let wait = 30;
+      const rd = (j?.error?.details || []).find(d => d.retryDelay); if (rd) wait = parseInt(rd.retryDelay) || wait;
+      wait = Math.min(Math.max(wait, 5), 90);
+      for (let s = wait; s > 0; s--){ onWait && onWait(s); await sleep(1000, signal); }
+      continue;
+    }
+    if (r.status === 400 && /API key/i.test(msg)) throw new Error('API key ghalat hai. Dobara check karein.');
+    if (r.status === 400 && !legacyFormat && model.startsWith('gemini-3.8') && /(Unknown name|Invalid JSON|voice|speech_metadata|cannot find field)/i.test(msg)){
+      legacyFormat = true; continue; // retry with the older request format
+    }
+    if (r.status === 403) throw new Error('Is key ko is model ki ijazat nahi. Model badal kar try karein.\n' + msg);
+    if (r.status === 404) throw new Error('Ye model abhi available nahi. Doosra model chunein.\n' + msg);
+    throw new Error(`Error ${r.status}: ${msg}`);
+  }
+  throw new Error('Kai dafa try kiya, kamyabi nahi hui. Thori der baad try karein.');
+}
+
+// ---------- audio files ----------
+function wavBlob(pcm){
+  const buf = new ArrayBuffer(44 + pcm.length*2), dv = new DataView(buf);
+  const w = (o,s) => { for (let i=0;i<s.length;i++) dv.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,'RIFF'); dv.setUint32(4, 36 + pcm.length*2, true); w(8,'WAVE'); w(12,'fmt ');
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true); dv.setUint32(24,RATE,true);
+  dv.setUint32(28,RATE*2,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true); w(36,'data'); dv.setUint32(40,pcm.length*2,true);
+  new Int16Array(buf, 44).set(pcm);
+  return new Blob([buf], { type:'audio/wav' });
+}
+async function mp3Blob(pcm, onProg){
+  if (typeof lamejs === 'undefined') throw new Error('MP3 encoder load nahi hua (internet check karein). WAV chunein.');
+  const enc = new lamejs.Mp3Encoder(1, RATE, 128), out = [], step = 1152 * 200;
+  for (let i = 0; i < pcm.length; i += step){
+    const sub = pcm.subarray(i, i + step);
+    for (let j = 0; j < sub.length; j += 1152){ const b = enc.encodeBuffer(sub.subarray(j, j+1152)); if (b.length) out.push(new Uint8Array(b)); }
+    onProg && onProg(i / pcm.length); await new Promise(r => setTimeout(r, 0));
+  }
+  const end = enc.flush(); if (end.length) out.push(new Uint8Array(end));
+  return new Blob(out, { type:'audio/mpeg' });
+}
+function concat(list){
+  const gap = new Int16Array(Math.round(RATE * 0.25));
+  const total = list.reduce((a,p) => a + p.length, 0) + gap.length * Math.max(0, list.length-1);
+  const out = new Int16Array(total); let o = 0;
+  list.forEach((p,i) => { out.set(p, o); o += p.length; if (i < list.length-1) o += gap.length; });
+  return out;
+}
+
+// ---------- preview ----------
+const pvCache = {};
+let pvBusy = false;
+function pvLog(msg, cls){ $('pvLog').innerHTML = cls ? `<span class="${cls}">${msg}</span>` : msg; }
+function playPreview(url, n){
+  const a = $('pvPlayer');
+  a.src = url; a.classList.remove('hidden');
+  const p = a.play();
+  if (p && p.catch) p.catch(() => pvLog(`✅ ${n} tayyar hai — neeche player mein ▶ dabayein.`, 'ok'));
+  pvLog(`🔊 ${n} ki awaaz chal rahi hai.`, 'ok');
+}
+async function previewVoice(n, el){
+  if (!$('key').value.trim()){ pvLog('⚠️ Pehle upar Google AI Studio API key paste karein, phir preview chalega.', 'err'); $('key').focus(); return; }
+  if (pvCache[n]) return playPreview(pvCache[n], n);
+  if (pvBusy){ pvLog('⏳ Ek preview pehle se ban raha hai, thora intezar karein...'); return; }
+  pvBusy = true; el.textContent = '⏳';
+  pvLog(`⏳ ${n} ka preview ban raha hai (5–15 second)...`);
+  // unlock audio inside the click so the browser allows playback later
+  try{ const a = $('pvPlayer'); a.muted = true; a.play().catch(()=>{}); a.pause(); a.muted = false; }catch(e){}
+  try{
+    const pcm = await tts(`Hi, I'm ${n}. This is how your voiceover will sound.`, n, null,
+      s => pvLog(`⏳ Free limit — ${s} sec wait, phir ${n} ka preview dobara try hoga...`));
+    if (!pcm.length) throw new Error('Khali audio aaya. Dobara try karein.');
+    pvCache[n] = URL.createObjectURL(wavBlob(pcm));
+    playPreview(pvCache[n], n);
+  }catch(e){
+    pvLog('⚠️ Preview nahi bana: ' + e.message, 'err');
+  }finally{ el.textContent = '▶'; pvBusy = false; }
+}
+
+// ---------- generate ----------
+$('gen').onclick = async () => {
+  const text = $('text').value.trim();
+  if (!$('key').value.trim()) return log('⚠️ Pehle Google AI Studio API key daalein (upar).', 'err');
+  if (!text) return log('⚠️ Script khali hai.', 'err');
+  if (text.length > MAX) return log('⚠️ Script 20,000 characters se zyada hai.', 'err');
+  store.set('gemini_key', $('key').value.trim());
+
+  const chunks = chunkText(text, +$('chunk').value);
+  aborter = new AbortController();
+  $('gen').disabled = true; $('cancel').disabled = false;
+  $('player').classList.add('hidden'); $('dlRow').classList.add('hidden');
+  const pcms = [], t0 = Date.now();
+  try{
+    for (let i = 0; i < chunks.length; i++){
+      log(`🔊 Hissa ${i+1} / ${chunks.length} ban raha hai... (${voice})`);
+      $('prog').style.width = (i / chunks.length * 92) + '%';
+      pcms.push(await tts(chunks[i], voice, aborter.signal,
+        s => log(`⏳ Free limit — ${s} sec wait, phir hissa ${i+1} / ${chunks.length} dobara try hoga...`)));
+    }
+    const pcm = concat(pcms), secs = pcm.length / RATE;
+    const wav = wavBlob(pcm);
+    $('player').src = URL.createObjectURL(wav); $('player').classList.remove('hidden');
+    const fmt = $('fmt').value;
+    if (fmt === 'mp3'){
+      log('🎵 MP3 ban rahi hai...');
+      finalBlob = await mp3Blob(pcm, f => $('prog').style.width = (92 + f*8) + '%');
+    } else finalBlob = wav;
+    finalName = `voiceover_${voice}_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.${fmt}`;
+    $('prog').style.width = '100%';
+    $('dlInfo').textContent = `${Math.floor(secs/60)}:${String(Math.round(secs%60)).padStart(2,'0')} min · ${(finalBlob.size/1048576).toFixed(1)} MB`;
+    $('dlRow').classList.remove('hidden');
+    log(`✅ Tayyar! ${chunks.length} hisse, ${Math.round((Date.now()-t0)/1000)} sec mein bane.`, 'ok');
+  }catch(e){
+    if (e.name === 'AbortError') log('✖ Cancel kar diya.');
+    else log('⚠️ ' + e.message + (pcms.length ? `\n(${pcms.length} hisse ban chuke the.)` : ''), 'err');
+    if (pcms.length && e.name !== 'AbortError'){
+      const w = wavBlob(concat(pcms)); finalBlob = w; finalName = `voiceover_partial_${voice}.wav`;
+      $('player').src = URL.createObjectURL(w); $('player').classList.remove('hidden');
+      $('dlInfo').textContent = 'Adhoori file (jitni bani)'; $('dlRow').classList.remove('hidden');
+    }
+  }finally{
+    $('gen').disabled = false; $('cancel').disabled = true; aborter = null;
+  }
+};
+$('cancel').onclick = () => aborter && aborter.abort();
+$('dl').onclick = () => {
+  if (!finalBlob) return;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(finalBlob); a.download = finalName;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+</script>
+</body>
+</html>
