@@ -94,6 +94,40 @@ audio{width:100%;margin-top:12px}
     <audio id="pvPlayer" controls class="hidden"></audio>
   </div>
 
+  <!-- VOICE CLONE -->
+  <div class="card">
+    <label>🧬 Voice Clone — apni awaaz ka AI version banayein <span class="badge">Gemini 3.8</span></label>
+    <div class="tip" style="margin-bottom:12px">Google sirf <b>usi shakhs ki ijazat</b> se awaaz clone karta hai jis ki awaaz hai. Do recordings chahiye, dono <b>ek hi mic aur ek hi kamre</b> mein, shor ke baghair.</div>
+    <div class="grid2">
+      <div>
+        <label>1 · Awaaz ka sample (10–30 second)</label>
+        <div class="tip" style="margin-bottom:8px">Normal andaaz mein kuch bhi bolein, jaise apna taaruf ya koi paragraph parhein.</div>
+        <div class="row">
+          <button class="sec" id="recRef">🎤 Record</button>
+          <label class="sec" style="display:inline-block;padding:12px 16px;border-radius:10px;cursor:pointer;margin:0;text-transform:none;font-size:14px;color:var(--text);background:#232838">📁 Upload<input type="file" id="upRef" accept="audio/*" hidden></label>
+        </div>
+        <div class="log" id="refLog" style="margin-top:8px"></div>
+        <audio id="refPlay" controls class="hidden" style="margin-top:6px"></audio>
+      </div>
+      <div>
+        <label>2 · Consent recording</label>
+        <div class="tip" style="margin-bottom:8px">Saaf awaaz mein ye English jumla bolein:<br><b style="color:var(--gold)">"I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model."</b></div>
+        <div class="row">
+          <button class="sec" id="recCon">🎤 Record</button>
+          <label class="sec" style="display:inline-block;padding:12px 16px;border-radius:10px;cursor:pointer;margin:0;text-transform:none;font-size:14px;color:var(--text);background:#232838">📁 Upload<input type="file" id="upCon" accept="audio/*" hidden></label>
+        </div>
+        <div class="log" id="conLog" style="margin-top:8px"></div>
+        <audio id="conPlay" controls class="hidden" style="margin-top:6px"></audio>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <input type="text" id="cloneName" placeholder="Voice ka naam, jaise: Meri Awaaz" style="flex:1;min-width:200px">
+      <button class="primary" id="makeClone">🧬 Clone banayein</button>
+      <button class="sec" id="syncClones">↻ Meri cloned voices</button>
+    </div>
+    <div class="log" id="cloneLog" style="margin-top:10px"></div>
+  </div>
+
   <!-- SETTINGS -->
   <div class="card">
     <div class="grid3">
@@ -202,12 +236,21 @@ $('testKey').onclick = async () => {
 if (inSandbox()) keyLog('⚠️ Ye file kisi app ke preview ke andar khuli hai, yahan voices nahi banengi. File download karke Chrome ya Edge mein kholein.', 'err');
 
 // ---------- voices ----------
+let clones = []; try{ clones = JSON.parse(store.get('gemini_clones') || '[]'); }catch(e){}
+const saveClones = () => store.set('gemini_clones', JSON.stringify(clones));
+const isClone = v => /^voice(key)?_/.test(v);
+const voiceLabel = v => (clones.find(c => c.id === v) || {}).name || v;
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderVoices(){
-  $('voices').innerHTML = VOICES.filter(v => gFilter==='all' || v[2]===gFilter).map(([n,d,g]) =>
+  const cl = clones.map(c =>
+    `<div class="v ${c.id===voice?'on':''}" data-n="${esc(c.id)}" style="border-color:${c.id===voice?'':'rgba(245,196,81,.4)'}"><span class="g" data-del="${esc(c.id)}" title="Delete">🗑</span><b>🧬 ${esc(c.name)}</b><small>Cloned voice</small><span class="pv" data-p="${esc(c.id)}">▶</span></div>`).join('');
+  $('voices').innerHTML = cl + VOICES.filter(v => gFilter==='all' || v[2]===gFilter).map(([n,d,g]) =>
     `<div class="v ${n===voice?'on':''}" data-n="${n}"><span class="g">${g==='F'?'♀':'♂'}</span><b>${n}</b><small>${d}</small><span class="pv" data-p="${n}">▶</span></div>`).join('');
-  $('selName').textContent = voice;
+  $('selName').textContent = isClone(voice) ? '🧬 ' + voiceLabel(voice) : voice;
 }
 $('voices').onclick = e => {
+  const d = e.target.closest('[data-del]');
+  if (d){ e.stopPropagation(); deleteClone(d.dataset.del); return; }
   const p = e.target.closest('[data-p]');
   if (p){ e.stopPropagation(); previewVoice(p.dataset.p, p); return; }
   const v = e.target.closest('.v'); if (!v) return;
@@ -267,7 +310,7 @@ function blockedHelp(){
 }
 let legacyFormat = false; // switches on automatically if the new request format is rejected
 function buildBody(model, text, v, style){
-  if (model.startsWith('gemini-3.8') && !legacyFormat){
+  if (model.startsWith('gemini-3.8') && (!legacyFormat || isClone(v))){
     const part = { text }; if (style) part.speech_metadata = { style };
     return { contents:[{ role:'user', parts:[part] }],
       generationConfig:{ responseModalities:['AUDIO'], speechConfig:{ voiceConfig:{ voice: v } } } };
@@ -293,7 +336,9 @@ function toPCM(bytes){ // strip WAV header if present
 const sleep = (ms, signal) => new Promise((res, rej) => { const t = setTimeout(res, ms); signal && signal.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('Aborted','AbortError')); }); });
 
 async function tts(text, v, signal, onWait){
-  const key = $('key').value.trim(), model = $('model').value;
+  const key = $('key').value.trim();
+  let model = $('model').value;
+  if (isClone(v) && !model.startsWith('gemini-3.8')) model = 'gemini-3.8-flash-tts'; // cloned voices need 3.8
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   for (let attempt = 1; attempt <= 6; attempt++){
     let r;
@@ -389,7 +434,7 @@ async function previewVoice(n, el){
   // unlock audio inside the click so the browser allows playback later
   try{ const a = $('pvPlayer'); a.muted = true; a.play().catch(()=>{}); a.pause(); a.muted = false; }catch(e){}
   try{
-    const pcm = await tts(`Hi, I'm ${n}. This is how your voiceover will sound.`, n, null,
+    const pcm = await tts(isClone(n) ? 'Hi! This is my cloned voice. This is how your voiceover will sound.' : `Hi, I'm ${n}. This is how your voiceover will sound.`, n, null,
       s => pvLog(`⏳ Free limit — ${s} sec wait, phir ${n} ka preview dobara try hoga...`));
     if (!pcm.length) throw new Error('Khali audio aaya. Dobara try karein.');
     pvCache[n] = URL.createObjectURL(wavBlob(pcm));
@@ -414,7 +459,7 @@ $('gen').onclick = async () => {
   const pcms = [], t0 = Date.now();
   try{
     for (let i = 0; i < chunks.length; i++){
-      log(`🔊 Hissa ${i+1} / ${chunks.length} ban raha hai... (${voice})`);
+      log(`🔊 Hissa ${i+1} / ${chunks.length} ban raha hai... (${voiceLabel(voice)})`);
       $('prog').style.width = (i / chunks.length * 92) + '%';
       pcms.push(await tts(chunks[i], voice, aborter.signal,
         s => log(`⏳ Free limit — ${s} sec wait, phir hissa ${i+1} / ${chunks.length} dobara try hoga...`)));
@@ -427,7 +472,7 @@ $('gen').onclick = async () => {
       log('🎵 MP3 ban rahi hai...');
       finalBlob = await mp3Blob(pcm, f => $('prog').style.width = (92 + f*8) + '%');
     } else finalBlob = wav;
-    finalName = `voiceover_${voice}_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.${fmt}`;
+    finalName = `voiceover_${voiceLabel(voice).replace(/[^\w-]+/g,"_")}_${new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')}.${fmt}`;
     $('prog').style.width = '100%';
     $('dlInfo').textContent = `${Math.floor(secs/60)}:${String(Math.round(secs%60)).padStart(2,'0')} min · ${(finalBlob.size/1048576).toFixed(1)} MB`;
     $('dlRow').classList.remove('hidden');
@@ -445,6 +490,133 @@ $('gen').onclick = async () => {
   }
 };
 $('cancel').onclick = () => aborter && aborter.abort();
+
+// ---------- VOICE CLONE ----------
+async function api(method, path, bodyObj){
+  const key = $('key').value.trim();
+  if (!key) throw new Error('Pehle upar API key paste karein.');
+  const url = 'https://generativelanguage.googleapis.com/v1beta/' + path;
+  const body = bodyObj ? JSON.stringify(bodyObj) : undefined;
+  let r;
+  try{
+    if (simpleMode) throw new TypeError('skip');
+    const h = { 'x-goog-api-key': key }; if (body) h['Content-Type'] = 'application/json';
+    r = await fetch(url, { method, headers: h, body });
+  }catch(e){
+    try{ r = await fetch(url + (url.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(key), { method, body }); simpleMode = true; }
+    catch(e2){ throw new Error(blockedHelp()); }
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`(${r.status}) ` + (j?.error?.message || r.statusText));
+  return j;
+}
+
+// Convert any recording/upload to 24 kHz mono 16-bit WAV (what Google wants)
+async function toWav24k(blob, maxSec){
+  const buf = await blob.arrayBuffer();
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ac = new AC();
+  const decoded = await ac.decodeAudioData(buf.slice(0));
+  ac.close && ac.close();
+  const dur = Math.min(decoded.duration, maxSec || decoded.duration);
+  const off = new OfflineAudioContext(1, Math.ceil(dur * RATE), RATE);
+  const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start(0);
+  const out = (await off.startRendering()).getChannelData(0);
+  let peak = 0; for (let i = 0; i < out.length; i++) peak = Math.max(peak, Math.abs(out[i]));
+  const gain = peak > 0 && peak < 0.5 ? 0.9 / peak : 1; // gentle normalise for quiet mics
+  const pcm = new Int16Array(out.length);
+  for (let i = 0; i < out.length; i++){ const s = Math.max(-1, Math.min(1, out[i] * gain)); pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF; }
+  return { wav: wavBlob(pcm), seconds: decoded.duration, used: dur };
+}
+const blobToB64 = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b); });
+
+const clip = { ref: null, con: null };
+let recorder = null, recTimer = null;
+async function setClip(which, blob){
+  const L = which === 'ref' ? $('refLog') : $('conLog'), P = which === 'ref' ? $('refPlay') : $('conPlay');
+  try{
+    L.textContent = '⏳ Audio tayyar ho raha hai...';
+    const r = await toWav24k(blob, which === 'ref' ? 30 : 20);
+    if (which === 'ref' && r.seconds < 10){ clip.ref = null; L.innerHTML = `<span class="err">⚠️ Sirf ${r.seconds.toFixed(1)} second hai. Kam az kam 10 second chahiye.</span>`; return; }
+    if (which === 'con' && r.seconds < 3){ clip.con = null; L.innerHTML = '<span class="err">⚠️ Recording bohat chhoti hai. Poora jumla bolein.</span>'; return; }
+    clip[which] = r.wav;
+    P.src = URL.createObjectURL(r.wav); P.classList.remove('hidden');
+    L.innerHTML = `<span class="ok">✅ ${r.used.toFixed(1)} second tayyar${r.seconds > r.used ? ` (pehle ${r.used} second liye gaye)` : ''}. Sun kar check kar lein.</span>`;
+  }catch(e){ L.innerHTML = '<span class="err">⚠️ Ye audio file parh nahi saka. WAV ya MP3 try karein.</span>'; }
+}
+async function toggleRec(which){
+  const btn = which === 'ref' ? $('recRef') : $('recCon'), L = which === 'ref' ? $('refLog') : $('conLog');
+  if (recorder && recorder.state === 'recording'){
+    if (recorder._which !== which) return;
+    recorder.stop(); return;
+  }
+  let stream;
+  try{ stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+  catch(e){ L.innerHTML = '<span class="err">⚠️ Mic ki ijazat nahi mili. Browser mein mic "Allow" karein, ya Upload use karein.</span>'; return; }
+  const chunks = []; recorder = new MediaRecorder(stream); recorder._which = which;
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    clearInterval(recTimer); stream.getTracks().forEach(t => t.stop());
+    btn.textContent = '🎤 Record'; btn.classList.remove('primary'); btn.classList.add('sec');
+    setClip(which, new Blob(chunks, { type: recorder.mimeType || 'audio/webm' }));
+  };
+  recorder.start();
+  btn.textContent = '⏹ Stop'; btn.classList.remove('sec'); btn.classList.add('primary');
+  const t0 = Date.now(), limit = which === 'ref' ? 30 : 20;
+  recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    L.innerHTML = `🔴 Recording... ${s}s${which === 'ref' ? (s < 10 ? ' (kam az kam 10s)' : ' ✓') : ''} — khatam karke Stop dabayein`;
+    if (s >= limit) recorder.stop();
+  }, 250);
+}
+$('recRef').onclick = () => toggleRec('ref');
+$('recCon').onclick = () => toggleRec('con');
+$('upRef').onchange = e => e.target.files[0] && setClip('ref', e.target.files[0]);
+$('upCon').onchange = e => e.target.files[0] && setClip('con', e.target.files[0]);
+
+const cLog = (m, c) => $('cloneLog').innerHTML = c ? `<span class="${c}">${m}</span>` : m;
+$('makeClone').onclick = async () => {
+  if (!clip.ref) return cLog('⚠️ Pehle awaaz ka sample (10–30 second) record ya upload karein.', 'err');
+  if (!clip.con) return cLog('⚠️ Consent wala jumla record karein.', 'err');
+  const name = $('cloneName').value.trim() || 'My Voice ' + (clones.length + 1);
+  const model = $('model').value.startsWith('gemini-3.8') ? $('model').value : 'gemini-3.8-flash-tts';
+  $('makeClone').disabled = true; cLog('⏳ Google aap ki awaaz clone kar raha hai (30–60 second lag sakte hain)...');
+  try{
+    const j = await api('POST', 'voices', { store: true, voice: { model, type: 'replicated', display_name: name,
+      replicated: { source_audio: { mime_type: 'audio/wav', data: await blobToB64(clip.ref) },
+                    consent_audio: { mime_type: 'audio/wav', data: await blobToB64(clip.con) } } } });
+    const id = j.id || j.key || (j.name || '').replace(/^voices\//, '');
+    if (!id) throw new Error('Google ne voice ID wapas nahi di.');
+    clones = clones.filter(c => c.id !== id); clones.unshift({ id, name });
+    saveClones(); voice = id; store.set('gemini_voice', voice); renderVoices();
+    cLog(`✅ "${esc(name)}" clone ban gayi! Voice list mein sab se upar 🧬 ke sath hai aur select ho chuki hai. ▶ se preview sunein.`, 'ok');
+  }catch(e){
+    let m = e.message;
+    if (/consent|verif|speaker|match/i.test(m)) m += '\n👉 Dono recordings ek hi shakhs ki, ek hi mic aur kamre mein honi chahiye, aur consent jumla poora aur saaf bola gaya ho.';
+    if (/500|INTERNAL/i.test(m)) m += '\n👉 Google ki taraf se masla hai. Thori der baad dobara try karein.';
+    if (/403|permission|not available|region/i.test(m)) m += '\n👉 Ho sakta hai voice clone aap ki key ya mulk ke liye abhi available na ho.';
+    cLog('⚠️ Clone nahi bani: ' + esc(m), 'err');
+  }finally{ $('makeClone').disabled = false; }
+};
+$('syncClones').onclick = async () => {
+  cLog('⏳ Google se aap ki cloned voices la raha hoon...');
+  try{
+    const j = await api('GET', 'voices?type=replicated&pageSize=100');
+    const list = (j.voices || []).map(v => ({ id: v.id || (v.name || '').replace(/^voices\//, ''), name: v.display_name || v.displayName || v.id || v.name })).filter(v => v.id);
+    clones = list.concat(clones.filter(c => /^voicekey_/.test(c.id))); saveClones(); renderVoices();
+    cLog(list.length ? `✅ ${list.length} cloned voice(s) mil gayin.` : 'Abhi tak koi cloned voice nahi hai.', 'ok');
+  }catch(e){ cLog('⚠️ ' + esc(e.message), 'err'); }
+};
+async function deleteClone(id){
+  const c = clones.find(x => x.id === id);
+  if (!c) return;
+  const el = document.querySelector(`[data-del="${CSS.escape(id)}"]`);
+  if (el && el.dataset.sure !== '1'){ el.dataset.sure = '1'; el.textContent = 'Sure?'; setTimeout(() => { if (el.isConnected){ el.dataset.sure = ''; el.textContent = '🗑'; } }, 3000); return; }
+  try{ if (/^voice_/.test(id)) await api('DELETE', 'voices/' + encodeURIComponent(id)); }catch(e){ cLog('⚠️ Google se delete nahi hui: ' + esc(e.message), 'err'); }
+  clones = clones.filter(x => x.id !== id); saveClones();
+  if (voice === id){ voice = 'Charon'; store.set('gemini_voice', voice); }
+  renderVoices(); cLog(`🗑 "${esc(c.name)}" delete ho gayi.`);
+}
 $('dl').onclick = () => {
   if (!finalBlob) return;
   const a = document.createElement('a'); a.href = URL.createObjectURL(finalBlob); a.download = finalName;
